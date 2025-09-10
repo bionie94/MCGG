@@ -1,5 +1,32 @@
-// Initialize player inputs on page load
-window.onload = () => {
+// Improved script.js with safe initialization and debugging logs
+
+let players = [];
+
+// Helper: read players from inputs into `players` array
+function readPlayers() {
+  const temp = [];
+  for (let i = 1; i <= 8; i++) {
+    const el = document.getElementById("P" + i);
+    if (!el) {
+      console.error("Missing input element: P" + i);
+      return false;
+    }
+    temp.push(el.value.trim());
+  }
+  // Check all filled
+  if (temp.some((v) => v === "")) {
+    return false;
+  }
+  // assign
+  players = temp;
+  console.log("readPlayers ->", players);
+  return true;
+}
+
+// Initialize UI and attach events after DOM loaded
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("DOM loaded - initializing player inputs");
+
   const container = document.getElementById("playerInputs");
   for (let i = 1; i <= 8; i++) {
     let div = document.createElement("div");
@@ -9,22 +36,28 @@ window.onload = () => {
     `;
     container.appendChild(div);
   }
-};
 
-let players = [];
+  // Attach top-level buttons safely (they exist in index.html)
+  const btnGen = document.getElementById("btnGenerate");
+  const btnSolve = document.getElementById("btnSolve");
+  if (!btnGen) console.error("btnGenerate not found");
+  if (!btnSolve) console.error("btnSolve not found");
 
+  btnGen && btnGen.addEventListener("click", generateDropdowns);
+  btnSolve && btnSolve.addEventListener("click", solve);
+
+  console.log("Event listeners attached");
+});
+
+// preserve original generateDropdowns name (used in index)
 function generateDropdowns() {
-  players = [];
-  for (let i = 1; i <= 8; i++) {
-    let val = document.getElementById("P" + i).value.trim();
-    if (!val) {
-      alert("KEPALA COCOT ISI SEMUA NAMA PLAYER LAH");
-      return;
-    }
-    players.push(val);
+  // read players from inputs before making rounds
+  if (!readPlayers()) {
+    alert("KEPALA COCOT ISI SEMUA NAMA PLAYER LAH");
+    return;
   }
   if (new Set(players).size !== 8) {
-    alert("ISI LAH NAMA PLAYER SHORTFORM PUN OK");
+    alert("ISI LAH NAMA PLAYER SHORTFORM PUN OK (tiada nama berganda)");
     return;
   }
 
@@ -38,13 +71,19 @@ function generateDropdowns() {
     h3.className = "text-lg font-semibold text-indigo-300 select-none";
     h3.textContent = title;
     section.appendChild(h3);
+    // first match fixed to players[0]
     section.appendChild(makeMatch(players[0], true));
+    // 3 more matches (select vs select)
     for (let i = 0; i < 3; i++) section.appendChild(makeMatch(null, false));
     roundsDiv.appendChild(section);
   });
 
-  document.getElementById("roundsForm").classList.remove("hidden");
+  // show form area
+  const rf = document.getElementById("roundsForm");
+  if (rf) rf.classList.remove("hidden");
   attachFilterEvents();
+
+  console.log("generateDropdowns -> rounds created");
 }
 
 function makeMatch(fixed = null) {
@@ -68,14 +107,13 @@ function makeMatch(fixed = null) {
       optionDefault.value = "";
       optionDefault.textContent = "-- select --";
       select.appendChild(optionDefault);
-      players
-        .filter((p) => p !== players[0])
-        .forEach((p) => {
-          let opt = document.createElement("option");
-          opt.value = p;
-          opt.textContent = p;
-          select.appendChild(opt);
-        });
+      // If players not yet set, don't crash — fallback to empty
+      (players || []).forEach((p) => {
+        let opt = document.createElement("option");
+        opt.value = p;
+        opt.textContent = p;
+        select.appendChild(opt);
+      });
       if (value) select.value = value;
       return select;
     }
@@ -115,7 +153,7 @@ function attachFilterEvents() {
           let current = s.value;
           s.innerHTML =
             `<option value="">-- select --</option>` +
-            players
+            (players || [])
               .filter(
                 (p) =>
                   p !== players[0] &&
@@ -135,7 +173,16 @@ function attachFilterEvents() {
 }
 
 function getRound(roundIdx) {
-  let section = document.getElementById("rounds").children[roundIdx];
+  const roundsParent = document.getElementById("rounds");
+  if (!roundsParent) {
+    alert("Round container not found. Please Generate Rounds first.");
+    return null;
+  }
+  let section = roundsParent.children[roundIdx];
+  if (!section) {
+    alert("Round index invalid / not found.");
+    return null;
+  }
   let inputs = section.querySelectorAll("input,select");
   let pairs = [];
   for (let i = 0; i < inputs.length; i += 2) {
@@ -150,7 +197,7 @@ function getRound(roundIdx) {
   return pairs;
 }
 
-// --- Algoritma inti ---
+// --- Algoritma inti (tidak diubah dari asal) ---
 function simulate_rotation(order, fixed, n_rounds) {
   let res = [];
   let arr = order.slice();
@@ -203,166 +250,137 @@ function eqSets(arr1, arr2) {
   return true;
 }
 
+/* === UPGRADED solve wrapper: keep original algorithm but ensure players loaded === */
 function solve() {
-  const rounds = document.querySelectorAll(".round");
-  const output = document.getElementById("output");
-  output.innerHTML = "";
-
-  rounds.forEach((roundDiv, roundIndex) => {
-    const selects = roundDiv.querySelectorAll("select");
-    let players = Array.from(selects).map((s) => s.value || "P?");
-
-    // Group matchups: (P1 vs ...), (P2 vs ...), etc.
-    let matches = [];
-    for (let i = 0; i < players.length; i += 2) {
-      if (players[i] && players[i + 1]) {
-        matches.push([players[i], players[i + 1]]);
-      }
+  // Make sure players are read (in case user didn't click Generate)
+  if (players.length < 8) {
+    const ok = readPlayers();
+    if (!ok) {
+      alert("Sila masukkan semua nama pemain (P1 - P8) dan tekan Generate Rounds dahulu.");
+      return;
     }
-
-    // Round container
-    let roundBox = document.createElement("div");
-    roundBox.className =
-      "bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700";
-
-    let roundTitle = document.createElement("h2");
-    roundTitle.className = "text-xl font-bold mb-3 text-indigo-400";
-    roundTitle.textContent = `Round ${roundIndex + 1}`;
-    roundBox.appendChild(roundTitle);
-
-    // Each matchup
-    matches.forEach((pair) => {
-      let matchLine = document.createElement("p");
-
-      // Highlight logic
-      if (pair.includes("P1")) {
-        matchLine.className =
-          "font-semibold text-amber-400 text-lg mb-1 drop-shadow";
-      } else if (pair.includes("P2") || pair.includes("P3") || pair.includes("P4")) {
-        matchLine.className =
-          "font-semibold text-sky-400 text-lg mb-1 drop-shadow";
-      } else {
-        matchLine.className = "text-gray-300 mb-1";
-      }
-
-      matchLine.textContent = `${pair[0]} vs ${pair[1]}`;
-      roundBox.appendChild(matchLine);
-    });
-
-    output.appendChild(roundBox);
-  });
-}
-
-  let solutions = [];
-
-  for (let fixed of players) {
-    let others = players.filter((p) => p !== fixed);
-
-    function permute(arr, k = []) {
-      if (arr.length === 0) {
-        let sim = simulate_rotation(k, fixed, 3);
-        let ok = true;
-        for (let i = 0; i < 3; i++) {
-          let simPairs = sim[i];
-          let inputPairs = rounds[i];
-          if (!eqSets(simPairs, inputPairs)) {
-            ok = false;
-            break;
-          }
-        }
-        if (ok) solutions.push([fixed, k]);
-        return;
-      }
-      for (let i = 0; i < arr.length; i++)
-        permute(arr.slice(0, i).concat(arr.slice(i + 1)), k.concat(arr[i]));
-    }
-
-    permute(others, []);
   }
 
-  let container = document.getElementById("output");
-  container.innerHTML = "";
-
-  if (solutions.length === 0) {
-    const p1 = players[0];
-    function findOpponent(roundSetArr, player) {
-      let match = roundSetArr.find((s) => s.has(player));
-      if (!match) return undefined;
-      return [...match].find((x) => x !== player);
+  // Now call the original solve logic (kept intact). We'll just run it in a try/catch
+  try {
+    // Original solve logic begins here (copied from your original code)
+    let rounds = [];
+    for (let i = 0; i < 3; i++) {
+      let r = getRound(i);
+      if (!r) return;
+      rounds.push(r.map((p) => new Set(p)));
     }
-    const B = findOpponent(rounds[0], p1);
-    const F = findOpponent(rounds[1], p1);
-    const E = findOpponent(rounds[2], p1);
 
-    let resultBox = document.createElement("pre");
-    resultBox.className =
-      "bg-gray-900 text-green-400 p-4 rounded-lg text-sm";
-    resultBox.textContent = `I-2 : ${B}\nI-3 : ${F}\nI-4 : ${E}`;
-    container.appendChild(resultBox);
+    let solutions = [];
 
-    let manualDiv = document.createElement("div");
-    manualDiv.className = "mt-4 p-4 bg-gray-700 rounded-lg";
-    container.appendChild(manualDiv);
+    for (let fixed of players) {
+      let others = players.filter((p) => p !== fixed);
 
-    let II1Val = null;
-    let II2Val = null;
-
-    function renderStep(step, II1 = II1Val, II2 = II2Val) {
-      if (step === 1) {
-        manualDiv.innerHTML = `
-          <h3 class="font-semibold mb-2 text-indigo-300">Enter additional data: II-1</h3>
-          <div class="flex flex-col sm:flex-row items-center gap-2 mb-2">
-            <span class="w-20">${p1} vs</span>
-            ${dropdownHTML(players.filter(p => p !== p1 && ![B, F, E].includes(p)))}
-          </div>
-          <div class="flex flex-col sm:flex-row items-center gap-2">
-            <span class="w-20">${B} vs</span>
-            ${dropdownHTML(players.filter(p => p !== p1 && p !== B && ![F, E].includes(p)))}
-          </div>
-          <button id="btnManual" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1 rounded w-full sm:w-auto max-w-xs">Save</button>
-        `;
-
-        manualDiv.querySelector("#btnManual").onclick = () => {
-          const selects = manualDiv.querySelectorAll("select");
-          II1Val = selects[0].value;
-          II2Val = selects[1].value;
-
-          if (!II1Val || !II2Val) {
-            alert("Pilih semua lawan di II-1.");
-            return;
+      function permute(arr, k = []) {
+        if (arr.length === 0) {
+          let sim = simulate_rotation(k, fixed, 3);
+          let ok = true;
+          for (let i = 0; i < 3; i++) {
+            let simPairs = sim[i];
+            let inputPairs = rounds[i];
+            if (!eqSets(simPairs, inputPairs)) {
+              ok = false;
+              break;
+            }
           }
-          if (II1Val === II2Val) {
-            alert("Lawan di II-1 tidak boleh sama.");
-            return;
-          }
-
-          resultBox.textContent =
-            `I-2 : ${B}\nI-3 : ${F}\nI-4 : ${E}\nII-1 : ${II1Val}\nII-2 : ${II2Val}`;
-
-          renderStep(2, II1Val, II2Val);
-        };
+          if (ok) solutions.push([fixed, k]);
+          return;
+        }
+        for (let i = 0; i < arr.length; i++)
+          permute(arr.slice(0, i).concat(arr.slice(i + 1)), k.concat(arr[i]));
       }
 
-      if (step === 2) {
-        manualDiv.innerHTML = `
-          <h3 class="font-semibold mb-2 text-indigo-300">Enter additional data: II-2</h3>
-          <div class="flex flex-col sm:flex-row items-center gap-2">
-            <span class="w-20">${F} vs</span>
-            ${dropdownHTML(players.filter(p => ![p1, B, F, E, II1, II2].includes(p)))}
-          </div>
-          <button id="btnManual2" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1 rounded w-full sm:w-auto max-w-xs">Save</button>
-        `;
+      permute(others, []);
+    }
 
-        manualDiv.querySelector("#btnManual2").onclick = () => {
-          const C = manualDiv.querySelector("select").value;
-          if (!C) {
-            alert("Pilih lawan untuk " + F);
-            return;
-          }
+    let container = document.getElementById("output");
+    container.innerHTML = "";
 
-          const D = players.find(p => ![p1, B, F, E, II1, II2, C].includes(p));
+    if (solutions.length === 0) {
+      const p1 = players[0];
+      function findOpponent(roundSetArr, player) {
+        let match = roundSetArr.find((s) => s.has(player));
+        if (!match) return undefined;
+        return [...match].find((x) => x !== player);
+      }
+      const B = findOpponent(rounds[0], p1);
+      const F = findOpponent(rounds[1], p1);
+      const E = findOpponent(rounds[2], p1);
 
-          resultBox.textContent =
+      let resultBox = document.createElement("pre");
+      resultBox.className =
+        "bg-gray-900 text-green-400 p-4 rounded-lg text-sm";
+      resultBox.textContent = `I-2 : ${B}\nI-3 : ${F}\nI-4 : ${E}`;
+      container.appendChild(resultBox);
+
+      let manualDiv = document.createElement("div");
+      manualDiv.className = "mt-4 p-4 bg-gray-700 rounded-lg";
+      container.appendChild(manualDiv);
+
+      let II1Val = null;
+      let II2Val = null;
+
+      function renderStep(step, II1 = II1Val, II2 = II2Val) {
+        if (step === 1) {
+          manualDiv.innerHTML = `
+            <h3 class="font-semibold mb-2 text-indigo-300">Enter additional data: II-1</h3>
+            <div class="flex flex-col sm:flex-row items-center gap-2 mb-2">
+              <span class="w-20">${p1} vs</span>
+              ${dropdownHTML(players.filter(p => p !== p1 && ![B, F, E].includes(p)))}
+            </div>
+            <div class="flex flex-col sm:flex-row items-center gap-2">
+              <span class="w-20">${B} vs</span>
+              ${dropdownHTML(players.filter(p => p !== p1 && p !== B && ![F, E].includes(p)))}
+            </div>
+            <button id="btnManual" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1 rounded w-full sm:w-auto max-w-xs">Save</button>
+          `;
+
+          manualDiv.querySelector("#btnManual").onclick = () => {
+            const selects = manualDiv.querySelectorAll("select");
+            II1Val = selects[0].value;
+            II2Val = selects[1].value;
+
+            if (!II1Val || !II2Val) {
+              alert("Pilih semua lawan di II-1.");
+              return;
+            }
+            if (II1Val === II2Val) {
+              alert("Lawan di II-1 tidak boleh sama.");
+              return;
+            }
+
+            resultBox.textContent =
+              `I-2 : ${B}\nI-3 : ${F}\nI-4 : ${E}\nII-1 : ${II1Val}\nII-2 : ${II2Val}`;
+
+            renderStep(2, II1Val, II2Val);
+          };
+        }
+
+        if (step === 2) {
+          manualDiv.innerHTML = `
+            <h3 class="font-semibold mb-2 text-indigo-300">Enter additional data: II-2</h3>
+            <div class="flex flex-col sm:flex-row items-center gap-2">
+              <span class="w-20">${F} vs</span>
+              ${dropdownHTML(players.filter(p => ![p1, B, F, E, II1, II2].includes(p)))}
+            </div>
+            <button id="btnManual2" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1 rounded w-full sm:w-auto max-w-xs">Save</button>
+          `;
+
+          manualDiv.querySelector("#btnManual2").onclick = () => {
+            const C = manualDiv.querySelector("select").value;
+            if (!C) {
+              alert("Pilih lawan untuk " + F);
+              return;
+            }
+
+            const D = players.find(p => ![p1, B, F, E, II1, II2, C].includes(p));
+
+            resultBox.textContent =
 `I-2 : ${B}
 I-3 : ${F}
 I-4 : ${E}
@@ -378,96 +396,100 @@ III-5 : ${II2}
 III-6 : ${D}
 IV-1 : ${C}`;
 
-          manualDiv.innerHTML = `<p class="text-green-400 font-semibold">✅ Additional data entry completed</p>`;
-        };
+            manualDiv.innerHTML = `<p class="text-green-400 font-semibold">✅ Additional data entry completed</p>`;
+          };
+        }
       }
+
+      renderStep(1);
+      return;
     }
 
-    renderStep(1);
-    return;
+    // --- Jika solusi ditemukan ---
+    const roundLabels = {
+      4: "II-1",
+      5: "II-2",
+      6: "II-4",
+      7: "II-5",
+      8: "II-6",
+      9: "III-1",
+      10: "III-2",
+      11: "III-4",
+      12: "III-5",
+    };
+
+    const p1 = players[0];
+
+    function generate_rounds8to12(sched, fixed) {
+      let idxMap = [fixed];
+      for (let r = 0; r < 7; r++) {
+        let match = sched[r].find((m) => m.includes(fixed));
+        let opponent = match[0] === fixed ? match[1] : match[0];
+        idxMap.push(opponent);
+      }
+
+      let pattern = [
+        [
+          [7, 5],
+          [2, 1],
+          [6, 4],
+          [3, 8],
+        ],
+        [
+          [7, 4],
+          [2, 8],
+          [6, 5],
+          [3, 1],
+        ],
+        [
+          [7, 6],
+          [2, 3],
+          [5, 8],
+          [4, 1],
+        ],
+        [
+          [7, 3],
+          [2, 4],
+          [5, 1],
+          [6, 8],
+        ],
+        [
+          [7, 8],
+          [2, 6],
+          [5, 3],
+          [4, 1],
+        ],
+      ];
+
+      return pattern.map((r) =>
+        r.map((p) => [idxMap[p[0] - 1], idxMap[p[1] - 1]])
+      );
+    }
+
+    solutions.forEach((sol, idx) => {
+      let [fixed, perm] = sol;
+      let sched = generate_schedule(perm, fixed);
+      let futureRounds = generate_rounds8to12(sched, fixed);
+      sched = sched.concat(futureRounds);
+
+      let txt = `Kemungkinan ${idx + 1}\n`;
+      for (let r = 3; r < 12; r++) {
+        let matches = sched[r];
+        let userMatch = matches.find((m) => m.includes(p1));
+        let opponent = userMatch[0] === p1 ? userMatch[1] : userMatch[0];
+        txt += `${roundLabels[r + 1]}: ${opponent}\n`;
+      }
+
+      let box = document.createElement("pre");
+      box.className =
+        "bg-gray-900 text-green-400 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-words";
+      box.textContent = txt;
+      container.appendChild(box);
+    });
+  } catch (err) {
+    console.error("Error in solve():", err);
+    alert("Ada ralat berlaku semasa mengira. Buka console (F12) untuk detail.");
   }
-
-  // --- Jika solusi ditemukan ---
-  const roundLabels = {
-    4: "II-1",
-    5: "II-2",
-    6: "II-4",
-    7: "II-5",
-    8: "II-6",
-    9: "III-1",
-    10: "III-2",
-    11: "III-4",
-    12: "III-5",
-  };
-
-  const p1 = players[0];
-
-  function generate_rounds8to12(sched, fixed) {
-    let idxMap = [fixed];
-    for (let r = 0; r < 7; r++) {
-      let match = sched[r].find((m) => m.includes(fixed));
-      let opponent = match[0] === fixed ? match[1] : match[0];
-      idxMap.push(opponent);
-    }
-
-    let pattern = [
-      [
-        [7, 5],
-        [2, 1],
-        [6, 4],
-        [3, 8],
-      ],
-      [
-        [7, 4],
-        [2, 8],
-        [6, 5],
-        [3, 1],
-      ],
-      [
-        [7, 6],
-        [2, 3],
-        [5, 8],
-        [4, 1],
-      ],
-      [
-        [7, 3],
-        [2, 4],
-        [5, 1],
-        [6, 8],
-      ],
-      [
-        [7, 8],
-        [2, 6],
-        [5, 3],
-        [4, 1],
-      ],
-    ];
-
-    return pattern.map((r) =>
-      r.map((p) => [idxMap[p[0] - 1], idxMap[p[1] - 1]])
-    );
-  }
-
-  solutions.forEach((sol, idx) => {
-    let [fixed, perm] = sol;
-    let sched = generate_schedule(perm, fixed);
-    let futureRounds = generate_rounds8to12(sched, fixed);
-    sched = sched.concat(futureRounds);
-
-    let txt = `Kemungkinan ${idx + 1}\n`;
-    for (let r = 3; r < 12; r++) {
-      let matches = sched[r];
-      let userMatch = matches.find((m) => m.includes(p1));
-      let opponent = userMatch[0] === p1 ? userMatch[1] : userMatch[0];
-      txt += `${roundLabels[r + 1]}: ${opponent}\n`;
-    }
-
-    let box = document.createElement("pre");
-    box.className =
-      "bg-gray-900 text-green-400 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-words";
-    box.textContent = txt;
-    container.appendChild(box);
-  });
 }
 
 // Helper function to generate dropdown HTML for manual input steps
@@ -477,9 +499,3 @@ function dropdownHTML(list) {
     ${list.map((p) => `<option value="${p}">${p}</option>`).join("")}
   </select>`;
 }
-
-// Attach event listeners
-document
-  .getElementById("btnGenerate")
-  .addEventListener("click", generateDropdowns);
-document.getElementById("btnSolve").addEventListener("click", solve);
