@@ -4,35 +4,33 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MCGG Rotation Scheduler</title>
+  <script src="script.js" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen p-6">
-  <div class="max-w-3xl mx-auto space-y-8">
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-6">
+  <h1 class="text-3xl font-bold mb-6 text-indigo-400">MCGG Rotation Scheduler</h1>
 
-    <!-- Title -->
-    <h1 class="text-4xl font-extrabold text-center">
-      <span class="bg-gradient-to-r from-indigo-500 via-pink-500 to-yellow-400 bg-clip-text text-transparent drop-shadow-lg">
-        MCGG Rotation Scheduler
-      </span>
-    </h1>
-    <p class="text-center text-gray-400 text-sm">
-      Powered by ShadowSlayer ⚡
-    </p>
+  <!-- Player Inputs -->
+  <div id="playerInputs" class="grid grid-cols-2 gap-4 mb-6"></div>
 
-    <!-- Player input -->
-    <div id="playerInputs" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-    <button id="btnGenerate" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded w-full sm:w-auto">Generate Rounds</button>
-
-    <!-- Dropdown Rounds -->
-    <form id="roundsForm" class="hidden">
-      <div id="rounds" class="space-y-8"></div>
-      <button type="button" id="btnSolve" class="mt-6 bg-green-600 hover:bg-green-700 px-4 py-2 rounded w-full sm:w-auto">Solve</button>
-    </form>
-
-    <!-- Output -->
-    <div id="output" class="mt-8 space-y-4"></div>
+  <!-- Buttons -->
+  <div class="space-x-2 mb-6">
+    <button id="btnGenerate" 
+      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+      Generate Rounds
+    </button>
+    <button id="btnSolve" 
+      class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
+      Solve
+    </button>
   </div>
 
-  <script src="script.js"></script>
+  <!-- Round Dropdowns -->
+  <form id="roundsForm" class="hidden w-full max-w-lg">
+    <div id="rounds" class="space-y-6"></div>
+  </form>
+
+  <!-- Output -->
+  <div id="output" class="w-full max-w-lg space-y-4 mt-6"></div>
 </body>
 </html>
