@@ -1,3 +1,5 @@
+let players = [];
+
 // Initialize player inputs on page load
 window.onload = () => {
   const container = document.getElementById("playerInputs");
@@ -5,258 +7,138 @@ window.onload = () => {
     let div = document.createElement("div");
     div.innerHTML = `
       <label for="P${i}" class="block text-gray-400 text-sm mb-1 font-medium select-none">P${i}${i === 1 ? " (You)" : ""}</label>
-      <input id="P${i}" type="text" class="w-full rounded-md bg-gray-700 border border-gray-600 placeholder-gray-500 text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition px-3 py-2" placeholder="Player ${i} Name" />
+      <input type="text" id="P${i}" placeholder="Enter name" 
+        class="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white" />
     `;
     container.appendChild(div);
   }
+
+  document.getElementById("btnGenerate").addEventListener("click", generateRounds);
+  document.getElementById("btnSolve").addEventListener("click", solve);
+  document.getElementById("btnShowAll").addEventListener("click", showAllMatchups);
 };
 
-let players = [];
-
-function generateDropdowns() {
+function generateRounds() {
   players = [];
   for (let i = 1; i <= 8; i++) {
-    let val = document.getElementById("P" + i).value.trim();
-    if (!val) {
-      alert("KEPALA COCOT ISI SEMUA NAMA PLAYER LAH");
-      return;
-    }
+    let val = document.getElementById(`P${i}`).value || `P${i}`;
     players.push(val);
   }
-  if (new Set(players).size !== 8) {
-    alert("ISI LAH NAMA PLAYER SHORTFORM PUN OK");
-    return;
-  }
-
-  let roundsDiv = document.getElementById("rounds");
-  roundsDiv.innerHTML = "";
-
-  ["Round I-2", "Round I-3", "Round I-4"].forEach((title) => {
-    let section = document.createElement("div");
-    section.className = "space-y-4";
-    let h3 = document.createElement("h3");
-    h3.className = "text-lg font-semibold text-indigo-300 select-none";
-    h3.textContent = title;
-    section.appendChild(h3);
-    section.appendChild(makeMatch(players[0], true));
-    for (let i = 0; i < 3; i++) section.appendChild(makeMatch(null, false));
-    roundsDiv.appendChild(section);
-  });
-
-  document.getElementById("roundsForm").classList.remove("hidden");
-  attachFilterEvents();
+  alert("Players saved! Now click Solve or Show All Matchups.");
 }
 
-function makeMatch(fixed = null) {
-  let row = document.createElement("div");
-  row.className = "flex flex-col sm:flex-row items-center gap-2 mb-2 py-6";
+// Example round generator (round-robin style)
+function getRound(roundIndex) {
+  if (players.length < 8) return null;
 
-  function createInput(value, disabled = false) {
-    if (disabled) {
-      let input = document.createElement("input");
-      input.type = "text";
-      input.className =
-        "rounded-md bg-gray-700 border border-gray-600 text-gray-400 px-3 py-2 w-full sm:w-80% cursor-not-allowed";
-      input.value = value;
-      input.disabled = true;
-      return input;
-    } else {
-      let select = document.createElement("select");
-      select.className =
-        "player-select rounded-md bg-gray-700 border border-gray-600 text-gray-200 px-3 py-2 w-full sm:w-80% focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition";
-      let optionDefault = document.createElement("option");
-      optionDefault.value = "";
-      optionDefault.textContent = "-- select --";
-      select.appendChild(optionDefault);
-      players
-        .filter((p) => p !== players[0])
-        .forEach((p) => {
-          let opt = document.createElement("option");
-          opt.value = p;
-          opt.textContent = p;
-          select.appendChild(opt);
-        });
-      if (value) select.value = value;
-      return select;
-    }
-  }
-
-  if (fixed) {
-    let inputFixed = createInput(fixed, true);
-    let vsSpan = document.createElement("span");
-    vsSpan.className = "text-gray-400 select-none";
-    vsSpan.textContent = "vs";
-    let selectOpp = createInput(null, false);
-    row.appendChild(inputFixed);
-    row.appendChild(vsSpan);
-    row.appendChild(selectOpp);
-  } else {
-    let select1 = createInput(null, false);
-    let vsSpan = document.createElement("span");
-    vsSpan.className = "text-gray-400 select-none";
-    vsSpan.textContent = "vs";
-    let select2 = createInput(null, false);
-    row.appendChild(select1);
-    row.appendChild(vsSpan);
-    row.appendChild(select2);
-  }
-  return row;
-}
-
-function attachFilterEvents() {
-  document.querySelectorAll("#rounds > div").forEach((roundDiv) => {
-    let selects = roundDiv.querySelectorAll("select");
-    selects.forEach((sel) => {
-      sel.addEventListener("change", () => {
-        let chosen = Array.from(selects)
-          .map((s) => s.value)
-          .filter((v) => v !== "");
-        selects.forEach((s) => {
-          let current = s.value;
-          s.innerHTML =
-            `<option value="">-- select --</option>` +
-            players
-              .filter(
-                (p) =>
-                  p !== players[0] &&
-                  (!chosen.includes(p) || p === current)
-              )
-              .map(
-                (p) =>
-                  `<option value="${p}" ${
-                    p === current ? "selected" : ""
-                  }>${p}</option>`
-              )
-              .join("");
-        });
-      });
-    });
-  });
-}
-
-function getRound(roundIdx) {
-  let section = document.getElementById("rounds").children[roundIdx];
-  let inputs = section.querySelectorAll("input,select");
+  const p = [...players];
   let pairs = [];
-  for (let i = 0; i < inputs.length; i += 2) {
-    let a = inputs[i].value;
-    let b = inputs[i + 1].value;
-    if (!a || !b) {
-      alert("All dropdowns must be selected!");
-      return null;
-    }
-    pairs.push([a, b]);
+
+  // Round I-2
+  if (roundIndex === 0) {
+    pairs = [
+      [p[0], p[7]],
+      [p[1], p[6]],
+      [p[2], p[5]],
+      [p[3], p[4]],
+    ];
   }
+  // Round I-3
+  else if (roundIndex === 1) {
+    pairs = [
+      [p[0], p[6]],
+      [p[7], p[5]],
+      [p[1], p[4]],
+      [p[2], p[3]],
+    ];
+  }
+  // Round I-4
+  else if (roundIndex === 2) {
+    pairs = [
+      [p[0], p[5]],
+      [p[6], p[4]],
+      [p[7], p[3]],
+      [p[1], p[2]],
+    ];
+  }
+
   return pairs;
 }
 
-// --- Algoritma inti ---
-function simulate_rotation(order, fixed, n_rounds) {
-  let res = [];
-  let arr = order.slice();
-  for (let r = 0; r < n_rounds; r++) {
-    let pairs = [
-      new Set([arr[0], fixed]),
-      new Set([arr[1], arr[6]]),
-      new Set([arr[2], arr[5]]),
-      new Set([arr[3], arr[4]]),
-    ];
-    res.push(pairs);
-    arr = [arr[6]].concat(arr.slice(0, 6));
-  }
-  return res;
-}
-
-function generate_schedule(order, fixed, n_rounds = 7) {
-  let arr = order.slice();
-  let schedule = [];
-  for (let r = 1; r <= n_rounds; r++) {
-    let pairs = [
-      [arr[0], fixed],
-      [arr[1], arr[6]],
-      [arr[2], arr[5]],
-      [arr[3], arr[4]],
-    ];
-    schedule.push(pairs);
-    arr = [arr[6]].concat(arr.slice(0, 6));
-  }
-  return schedule;
-}
-
-function eqSets(arr1, arr2) {
-  if (arr1.length !== arr2.length) return false;
-  let used = new Array(arr2.length).fill(false);
-  for (let s1 of arr1) {
-    let found = false;
-    for (let j = 0; j < arr2.length; j++) {
-      if (!used[j]) {
-        let s2 = arr2[j];
-        if (s1.size === s2.size && [...s1].every((v) => s2.has(v))) {
-          used[j] = true;
-          found = true;
-          break;
-        }
-      }
-    }
-    if (!found) return false;
-  }
-  return true;
-}
-
+// Solve one round (default Round I-2)
 function solve() {
-  const roundsDiv = document.getElementById("rounds");
   const output = document.getElementById("output");
   output.innerHTML = "";
 
-  // --- Legend ---
-  const legend = document.createElement("div");
-  legend.className = "mb-6 p-4 bg-gray-900 rounded-lg shadow flex flex-col sm:flex-row gap-4 text-sm";
-  legend.innerHTML = `
-    <div><span class="text-yellow-400 font-bold">● P1</span> = Highlight utama</div>
-    <div><span class="text-blue-400 font-semibold">● P2–P4</span> = Secondary highlight</div>
-    <div><span class="text-gray-200">● P5–P8</span> = Neutral</div>
-  `;
-  output.appendChild(legend);
+  const pairs = getRound(0);
+  if (!pairs) return;
 
-  const sections = roundsDiv.querySelectorAll("div.space-y-4");
-  const matches = [];
+  const roundBox = document.createElement("div");
+  roundBox.className = "bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 mb-4";
 
-  // Loop setiap round
-  sections.forEach((section, roundIndex) => {
-    const inputs = section.querySelectorAll("input, select");
-    const roundMatches = [];
+  const roundTitle = document.createElement("h2");
+  roundTitle.className = "text-xl font-bold mb-3 text-indigo-400";
+  roundTitle.textContent = "Round I-2";
+  roundBox.appendChild(roundTitle);
 
-    for (let i = 0; i < inputs.length; i += 2) {
-      let a = inputs[i].value;
-      let b = inputs[i + 1].value;
-      if (a && b) roundMatches.push([a, b]);
+  pairs.forEach(([a, b]) => {
+    const line = document.createElement("p");
+
+    if (a === players[0] || b === players[0]) {
+      line.className = "font-semibold text-amber-400 text-lg mb-1 drop-shadow";
+    } else if (
+      [players[1], players[2], players[3]].includes(a) ||
+      [players[1], players[2], players[3]].includes(b)
+    ) {
+      line.className = "font-semibold text-sky-400 text-lg mb-1 drop-shadow";
+    } else {
+      line.className = "text-gray-300 mb-1";
     }
 
-    matches.push(roundMatches);
+    line.textContent = `${a} vs ${b}`;
+    roundBox.appendChild(line);
   });
 
-  // Output
-  matches.forEach((round, idx) => {
-    const div = document.createElement("div");
-    div.className = "p-4 bg-gray-800 rounded-lg shadow mb-4";
-    div.innerHTML = `<h2 class="font-bold mb-2 text-indigo-400">Round ${idx + 1}</h2>`;
+  output.appendChild(roundBox);
+}
 
-    round.forEach(match => {
-      const [p1, p2] = match;
+// Show all rounds (I-2, I-3, I-4)
+function showAllMatchups() {
+  const output = document.getElementById("output");
+  output.innerHTML = "";
 
-      let colorA = "text-gray-200"; // default
-      let colorB = "text-gray-200"; // default
+  const roundTitles = ["Round I-2", "Round I-3", "Round I-4"];
 
-      // highlight ikut nama player
-      if (p1 === players[0]) colorA = "text-yellow-400 font-bold"; // P1
-      if (p2 === players[0]) colorB = "text-yellow-400 font-bold";
+  for (let r = 0; r < 3; r++) {
+    const pairs = getRound(r);
+    if (!pairs) return;
 
-      if ([1, 2, 3].includes(players.indexOf(p1))) colorA = "text-blue-400 font-semibold"; // P2–P4
-      if ([1, 2, 3].includes(players.indexOf(p2))) colorB = "text-blue-400 font-semibold";
+    const roundBox = document.createElement("div");
+    roundBox.className = "bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 mb-4";
 
-      div.innerHTML += `<p><span class="${colorA}">${p1}</span> vs <span class="${colorB}">${p2}</span></p>`;
+    const roundTitle = document.createElement("h2");
+    roundTitle.className = "text-xl font-bold mb-3 text-indigo-400";
+    roundTitle.textContent = roundTitles[r];
+    roundBox.appendChild(roundTitle);
+
+    pairs.forEach(([a, b]) => {
+      const line = document.createElement("p");
+
+      if (a === players[0] || b === players[0]) {
+        line.className = "font-semibold text-amber-400 text-lg mb-1 drop-shadow";
+      } else if (
+        [players[1], players[2], players[3]].includes(a) ||
+        [players[1], players[2], players[3]].includes(b)
+      ) {
+        line.className = "font-semibold text-sky-400 text-lg mb-1 drop-shadow";
+      } else {
+        line.className = "text-gray-300 mb-1";
+      }
+
+      line.textContent = `${a} vs ${b}`;
+      roundBox.appendChild(line);
     });
 
-    output.appendChild(div);
-  });
+    output.appendChild(roundBox);
+  }
 }
