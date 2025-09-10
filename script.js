@@ -1,57 +1,49 @@
 function solve() {
-  const roundsDiv = document.getElementById("rounds");
+  const rounds = document.querySelectorAll(".round");
   const output = document.getElementById("output");
   output.innerHTML = "";
 
-  // --- Legend ---
-  const legend = document.createElement("div");
-  legend.className = "mb-6 p-4 bg-gray-900 rounded-lg shadow flex flex-col sm:flex-row gap-4 text-sm";
-  legend.innerHTML = `
-    <div><span class="text-yellow-400 font-bold">● P1</span> = Highlight utama</div>
-    <div><span class="text-blue-400 font-semibold">● P2–P4</span> = Secondary highlight</div>
-    <div><span class="text-gray-200">● P5–P8</span> = Neutral</div>
-  `;
-  output.appendChild(legend);
+  rounds.forEach((roundDiv, roundIndex) => {
+    const selects = roundDiv.querySelectorAll("select");
+    let players = Array.from(selects).map((s) => s.value || "P?");
 
-  const sections = roundsDiv.querySelectorAll("div.space-y-4");
-  const matches = [];
-
-  // Loop setiap round
-  sections.forEach((section, roundIndex) => {
-    const inputs = section.querySelectorAll("input, select");
-    const roundMatches = [];
-
-    for (let i = 0; i < inputs.length; i += 2) {
-      let a = inputs[i].value;
-      let b = inputs[i + 1].value;
-      if (a && b) roundMatches.push([a, b]);
+    // Group matchups: (P1 vs ...), (P2 vs ...), etc.
+    let matches = [];
+    for (let i = 0; i < players.length; i += 2) {
+      if (players[i] && players[i + 1]) {
+        matches.push([players[i], players[i + 1]]);
+      }
     }
 
-    matches.push(roundMatches);
-  });
+    // Round container
+    let roundBox = document.createElement("div");
+    roundBox.className =
+      "bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700";
 
-  // Output
-  matches.forEach((round, idx) => {
-    const div = document.createElement("div");
-    div.className = "p-4 bg-gray-800 rounded-lg shadow mb-4";
-    div.innerHTML = `<h2 class="font-bold mb-2 text-indigo-400">Round ${idx + 1}</h2>`;
+    let roundTitle = document.createElement("h2");
+    roundTitle.className = "text-xl font-bold mb-3 text-indigo-400";
+    roundTitle.textContent = `Round ${roundIndex + 1}`;
+    roundBox.appendChild(roundTitle);
 
-    round.forEach(match => {
-      const [p1, p2] = match;
+    // Each matchup
+    matches.forEach((pair) => {
+      let matchLine = document.createElement("p");
 
-      let colorA = "text-gray-200"; // default
-      let colorB = "text-gray-200"; // default
+      // Highlight logic
+      if (pair.includes("P1")) {
+        matchLine.className =
+          "font-semibold text-amber-400 text-lg mb-1 drop-shadow";
+      } else if (pair.includes("P2") || pair.includes("P3") || pair.includes("P4")) {
+        matchLine.className =
+          "font-semibold text-sky-400 text-lg mb-1 drop-shadow";
+      } else {
+        matchLine.className = "text-gray-300 mb-1";
+      }
 
-      // highlight ikut nama player
-      if (p1 === players[0]) colorA = "text-yellow-400 font-bold"; // P1
-      if (p2 === players[0]) colorB = "text-yellow-400 font-bold";
-
-      if ([1, 2, 3].includes(players.indexOf(p1))) colorA = "text-blue-400 font-semibold"; // P2–P4
-      if ([1, 2, 3].includes(players.indexOf(p2))) colorB = "text-blue-400 font-semibold";
-
-      div.innerHTML += `<p><span class="${colorA}">${p1}</span> vs <span class="${colorB}">${p2}</span></p>`;
+      matchLine.textContent = `${pair[0]} vs ${pair[1]}`;
+      roundBox.appendChild(matchLine);
     });
 
-    output.appendChild(div);
+    output.appendChild(roundBox);
   });
 }
